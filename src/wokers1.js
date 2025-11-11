@@ -46,7 +46,7 @@ function getModelOptimalParams(modelKey, modelId) {
         presence_penalty: 0.1
       };
       
-    case 'gemma-3':
+    case 'gemma-v4':
       return {
         ...baseParams,
         max_tokens: 4096,        // 多语言模型
@@ -123,11 +123,11 @@ const MODEL_CONFIG = {
     "use_messages": true,
     "features": ["代码生成", "调试分析", "技术文档"]
   },
-  "gemma-3": {
-    "id": "@cf/google/gemma-3-12b-it",
-    "name": "Gemma 3 12B",
+  "gemma-v4": {
+    "id": "@cf/aisingapore/gemma-sea-lion-v4-27b-it",
+    "name": "Gemma v4 27B",
     "description": "多语言模型，支持140+种语言和文化理解",
-    "context": 80000,
+    "context": 128000,
     "max_output": 4096,
     "input_price": 0.35,
     "output_price": 0.56,
