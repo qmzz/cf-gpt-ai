@@ -948,7 +948,6 @@ function getHTML() {
         }
         async function sendMessage() {
             try {
-                if (!verifyAuthorDisplay()) return;
                 if (!isAuthenticated || !currentModel) { showError('请先验证身份并选择模型'); return; }
                 const input = document.getElementById('messageInput');
                 const message = input.value.trim();
