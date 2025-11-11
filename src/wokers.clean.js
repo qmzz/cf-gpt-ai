@@ -1,8 +1,3 @@
-// 保留作者信息，qmzz自用去校验
-const AUTHOR_INFO = {
-  name: "康康的订阅天地",
-  platform: "YouTube"
-};
 // 模型特定参数配置
 function getModelOptimalParams(modelKey, modelId) {
   const baseParams = {
@@ -51,7 +46,7 @@ function getModelOptimalParams(modelKey, modelId) {
         presence_penalty: 0.1
       };
       
-    case 'gemma-v4':
+    case 'gemma-3':
       return {
         ...baseParams,
         max_tokens: 4096,        // 多语言模型
@@ -128,11 +123,11 @@ const MODEL_CONFIG = {
     "use_messages": true,
     "features": ["代码生成", "调试分析", "技术文档"]
   },
-  "gemma-v4": {
-    "id": "@cf/aisingapore/gemma-sea-lion-v4-27b-it",
-    "name": "Gemma v4 27B",
+  "gemma-3": {
+    "id": "@cf/google/gemma-3-12b-it",
+    "name": "Gemma 3 12B",
     "description": "多语言模型，支持140+种语言和文化理解",
-    "context": 128000,
+    "context": 80000,
     "max_output": 4096,
     "input_price": 0.35,
     "output_price": 0.56,
@@ -245,7 +240,7 @@ async function handleChat(request, env, corsHeaders) {
           userInput = "What is the origin of the phrase Hello, World?";
         } else {
           // 给GPT更明确的中文回复指示
-          userInput = `请用中文回答以下问题：${message}`;
+          userInput = message;
         }
         
         console.log(`${selectedModel.name} 输入:`, userInput);
@@ -265,8 +260,18 @@ async function handleChat(request, env, corsHeaders) {
       } else if (selectedModel.use_prompt) {
         // Gemma等模型
         const promptText = recentHistory.length > 0 
-          ? `你是一个智能AI助手，请务必用中文回答所有问题。\n\n历史对话:\n${recentHistory.map(h => `${h.role}: ${h.content}`).join('\n')}\n\n当前问题: ${message}\n\n请用中文回答:`
-          : `你是一个智能AI助手，请务必用中文回答所有问题。\n\n问题: ${message}\n\n请用中文回答:`;
+          ? `You are a helpful AI assistant.
+
+Conversation:
+${recentHistory.map(h => `${h.role}: ${h.content}`).join('
+')}
+
+User: ${message}
+Assistant:`
+          : `You are a helpful AI assistant.
+
+User: ${message}
+Assistant:`;
         
         const optimalParams = getModelOptimalParams(model, selectedModel.id);
         const promptParams = {
@@ -280,9 +285,9 @@ async function handleChat(request, env, corsHeaders) {
       } else if (selectedModel.use_messages) {
         // 使用messages参数的模型
         const messages = [
-          { role: "system", content: "你是一个智能AI助手，请务必用中文回答所有问题。无论用户使用什么语言提问，你都必须用中文回复。请确保你的回答完全使用中文，包括专业术语和代码注释。" },
+          { role: "system", content: "You are a helpful AI assistant. Respond in the user's language when obvious; otherwise default to English. Be clear and concise." },
           ...recentHistory.map(h => ({ role: h.role, content: h.content })),
-          { role: "user", content: `${message}\n\n请用中文回答:` }
+          { role: "user", content: `${message}` }
         ];
 
         const optimalParams = getModelOptimalParams(model, selectedModel.id);
@@ -303,18 +308,18 @@ async function handleChat(request, env, corsHeaders) {
     }
 
     // 处理DeepSeek的思考标签
-      if (selectedModel.id.includes('deepseek') && reply && reply.includes('<think>')) {
-        const thinkEndIndex = reply.lastIndexOf('</think>');
-        if (thinkEndIndex !== -1) {
+    if (selectedModel.id.includes('deepseek') && reply && reply.includes('<think>')) {
+      const thinkEndIndex = reply.lastIndexOf('</think>');
+      if (thinkEndIndex !== -1) {
         reply = reply.substring(thinkEndIndex + 8).trim();
       }
     }
     
     // 格式化Markdown内容
-      if (reply && typeof reply === 'string') {
-        reply = formatMarkdown(reply);
-      } else {
-        reply = reply || '抱歉，AI模型没有返回有效的回复内容。';
+    if (reply && typeof reply === 'string') {
+      reply = formatMarkdown(reply);
+    } else {
+      reply = reply || '抱歉，AI模型没有返回有效的回复内容。';
     }
 
     return new Response(JSON.stringify({ 
@@ -632,8 +637,8 @@ function formatMarkdown(text) {
   text = text.replace(/^\d+\. (.*$)/gim, '<li class="md-li-ordered">$1</li>');
   
   // 包装连续的列表项
-  text = text.replace(/(<li class="md-li">.*<\/li>)/s, '<ul class="md-ul">$1</ul>');
-  text = text.replace(/(<li class="md-li-ordered">.*<\/li>)/s, '<ol class="md-ol">$1</ol>');
+  text = text.replace(/(<li class=\"md-li\">.*<\/li>)/s, '<ul class="md-ul">$1</ul>');
+  text = text.replace(/(<li class=\"md-li-ordered\">.*<\/li>)/s, '<ol class="md-ol">$1</ol>');
   
   // 处理引用
   text = text.replace(/^> (.*$)/gim, '<blockquote class="md-blockquote">$1</blockquote>');
@@ -669,13 +674,9 @@ function getHTML() {
     <title>CF AI Chat</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100vh; overflow: hidden; }
+        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100dvh; overflow: auto; }
         .container { width: 100vw; height: 100vh; background: white; display: flex; flex-direction: column; }
         .header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 20px; text-align: center; }
-        .author-info { margin-top: 10px; padding: 8px 16px; background: rgba(255,255,255,0.1); border-radius: 20px; display: inline-block; cursor: pointer; transition: all 0.3s ease; }
-        .author-info:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
-        .author-info p { margin: 0; font-size: 14px; opacity: 0.9; }
-        .author-info strong { color: #ffd700; }
         .main-content { display: flex; flex: 1; overflow: hidden; }
         .sidebar { width: 300px; min-width: 300px; background: #f8fafc; border-right: 1px solid #e2e8f0; padding: 20px; overflow-y: auto; display: block !important; visibility: visible !important; flex-shrink: 0; }
         .chat-area { flex: 1; display: flex; flex-direction: column; }
@@ -795,16 +796,47 @@ function getHTML() {
         .md-blockquote { background: #f3f4f6; border-left: 4px solid #6b7280; padding: 10px 15px; margin: 10px 0; font-style: italic; color: #4b5563; }
         .md-link { color: #3b82f6; text-decoration: underline; }
         .md-link:hover { color: #1d4ed8; }
+    
+        /* —— 移动端自适应 —— */
+        @media (max-width: 768px) {
+          body { height: auto; min-height: 100dvh; }
+          .container { height: auto; min-height: 100dvh; }
+          .header { padding: 14px; }
+          .main-content { flex-direction: column; }
+          .sidebar { width: 100%; min-width: 0; padding: 12px; border-right: none; border-bottom: 1px solid #e2e8f0; max-height: 40vh; overflow-y: auto; }
+          .chat-area { flex: 1; min-height: 60vh; }
+          .messages { padding: 12px; -webkit-overflow-scrolling: touch; }
+          .message { max-width: 100%; }
+          .message-input { min-height: 44px; }
+          .send-btn { height: 44px; padding: 0 16px; }
+          .input-area { position: sticky; bottom: 0; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+        }
+    
+        /* 汉堡按钮：仅移动端可见 */
+        .hamburger { display: none; margin-left: 8px; font-size: 20px; line-height: 1; padding: 8px 12px; border: 0; border-radius: 8px; background: rgba(255,255,255,0.15); color: #fff; }
+        .hamburger:active { transform: scale(0.98); }
+        /* 抽屉遮罩层 */
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 49; }
+        /* 移动端：侧栏抽屉化 */
+        @media (max-width: 768px) {
+          .hamburger { display: inline-block; }
+          .main-content { position: relative; }
+          .sidebar { position: fixed; top: 0; left: 0; width: min(86vw, 360px); max-width: 90vw; height: 100dvh; z-index: 50; background: #f8fafc; border-right: 1px solid #e2e8f0; padding: 16px; overflow-y: auto; transform: translateX(-100%); transition: transform .25s ease; }
+          .sidebar[data-open="true"] { transform: translateX(0); }
+          body.no-scroll { overflow: hidden; height: 100dvh; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🤖 CF AI Chat</h1>
+            <button class="hamburger" id="sidebarToggle" aria-label="Toggle sidebar" aria-expanded="false" aria-controls="sidebar">☰</button>
             <p>支持多模型切换的智能聊天助手</p>
         </div>
+        <div class="backdrop" id="backdrop" hidden></div>
         <div class="main-content">
-            <div class="sidebar">
+            <div class="sidebar" id="sidebar" data-open="false">
                 <div class="auth-section" id="authSection">
                     <div class="input-group">
                         <label>访问密码</label>
@@ -828,7 +860,7 @@ function getHTML() {
             <div class="chat-area">
                 <div class="messages" id="messages">
                     <div class="message assistant">
-                        <div class="message-content">👋 欢迎使用CF AI Chat！请先输入密码验证身份，然后选择一个AI模型开始聊天。<br><br>🇨🇳 所有AI模型都已配置为使用中文回复，无论您使用什么语言提问，AI都会用中文回答您的问题。</div>
+                        <div class="message-content">👋 欢迎使用CF AI Chat！请先输入密码验证身份，然后选择一个AI模型开始聊天。</div>
                     </div>
                 </div>
                 <div class="loading" id="loading">🤔 AI正在思考中...</div>
@@ -842,7 +874,6 @@ function getHTML() {
         </div>
     </div>
     <script>
-        
         // 全局错误处理
         window.onerror = function(message, source, lineno, colno, error) {
             console.error('JavaScript错误:', { message, source, lineno, colno, error });
@@ -897,18 +928,18 @@ function getHTML() {
                     return;
                 }
                 const features = model.features ? model.features.join(' • ') : '';
-                infoDiv.innerHTML = \`
-                    <strong>\${model.name}</strong><br>
-                    📝 \${model.description}<br><br>
+                infoDiv.innerHTML = `
+                    <strong>${model.name}</strong><br>
+                    📝 ${model.description}<br><br>
                     🎯 <strong>特色功能:</strong><br>
-                    \${features}<br><br>
+                    ${features}<br><br>
                     💰 <strong>价格:</strong><br>
-                    • 输入: $\${model.input_price}/百万tokens<br>
-                    • 输出: $\${model.output_price}/百万tokens<br><br>
+                    • 输入: $${model.input_price}/百万tokens<br>
+                    • 输出: $${model.output_price}/百万tokens<br><br>
                     📏 <strong>限制:</strong><br>
-                    • 上下文: \${model.context.toLocaleString()} tokens<br>
-                    • 最大输出: \${model.max_output.toLocaleString()} tokens
-                \`;
+                    • 上下文: ${model.context.toLocaleString()} tokens<br>
+                    • 最大输出: ${model.max_output.toLocaleString()} tokens
+                `;
                 if (isAuthenticated) {
                     document.getElementById('messageInput').disabled = false;
                     document.getElementById('sendBtn').disabled = false;
@@ -987,30 +1018,30 @@ function getHTML() {
         function addMessage(role, content, modelName = '', usage = null) {
             const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
-            messageDiv.className = \`message \${role}\`;
+            messageDiv.className = `message ${role}`;
             let metaInfo = new Date().toLocaleTimeString();
-            if (modelName) metaInfo = \`\${modelName} • \${metaInfo}\`;
-            if (usage && usage.total_tokens) metaInfo += \` • \${usage.total_tokens} tokens\`;
-            messageDiv.innerHTML = \`<div class="message-content">\${content}</div><div style="font-size:12px;color:#6b7280;margin-top:5px;">\${metaInfo}</div>\`;
+            if (modelName) metaInfo = `${modelName} • ${metaInfo}`;
+            if (usage && usage.total_tokens) metaInfo += ` • ${usage.total_tokens} tokens`;
+            messageDiv.innerHTML = `<div class="message-content">${content}</div><div style="font-size:12px;color:#6b7280;margin-top:5px;">${metaInfo}</div>`;
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
         async function loadHistory() {
             if (!isAuthenticated || !currentModel) return;
             try {
-                const sessionId = \`\${currentModel}_history\`;
-                const response = await fetch(\`/api/history?password=\${encodeURIComponent(currentPassword)}&sessionId=\${sessionId}\`);
+                const sessionId = `${currentModel}_history`;
+                const response = await fetch(`/api/history?password=${encodeURIComponent(currentPassword)}&sessionId=${sessionId}`);
                 const data = await response.json();
                 if (response.ok) {
                     chatHistory = data.history || [];
                     const messagesDiv = document.getElementById('messages');
                     const modelName = models[currentModel]?.name || currentModel;
-                    messagesDiv.innerHTML = \`<div class="message assistant"><div class="message-content">📚 已加载 \${modelName} 的历史记录</div></div>\`;
+                    messagesDiv.innerHTML = `<div class="message assistant"><div class="message-content">📚 已加载 ${modelName} 的历史记录</div></div>`;
                     chatHistory.forEach(msg => addMessage(msg.role, msg.content, msg.model || ''));
                     if (chatHistory.length === 0) {
-                        showSuccess(\`\${modelName} 暂无历史记录\`);
+                        showSuccess(`${modelName} 暂无历史记录`);
                     } else {
-                        showSuccess(\`已加载 \${modelName} 的 \${chatHistory.length} 条历史记录\`);
+                        showSuccess(`已加载 ${modelName} 的 ${chatHistory.length} 条历史记录`);
                     }
                 } else { showError(data.error || '加载历史记录失败'); }
             } catch (error) { showError('加载历史记录失败: ' + error.message); }
@@ -1018,7 +1049,7 @@ function getHTML() {
         async function saveHistory() {
             if (!isAuthenticated || !currentModel) return;
             try {
-                const sessionId = \`\${currentModel}_history\`;
+                const sessionId = `${currentModel}_history`;
                 await fetch('/api/history', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password: currentPassword, sessionId: sessionId, history: chatHistory })
@@ -1028,11 +1059,11 @@ function getHTML() {
         async function clearHistory() {
             if (!currentModel) { showError('请先选择模型'); return; }
             const modelName = models[currentModel]?.name || currentModel;
-            if (!confirm(\`确定要清空 \${modelName} 的所有聊天记录吗？\`)) return;
+            if (!confirm(`确定要清空 ${modelName} 的所有聊天记录吗？`)) return;
             chatHistory = []; 
             await saveHistory();
-            document.getElementById('messages').innerHTML = \`<div class="message assistant"><div class="message-content">✨ \${modelName} 聊天记录已清空</div></div>\`;
-            showSuccess(\`\${modelName} 聊天记录已清空\`);
+            document.getElementById('messages').innerHTML = `<div class="message assistant"><div class="message-content">✨ ${modelName} 聊天记录已清空</div></div>`;
+            showSuccess(`${modelName} 聊天记录已清空`);
         }
         function handleKeyDown(event) {
             if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }
@@ -1053,42 +1084,23 @@ function getHTML() {
             setTimeout(() => div.remove(), 3000);
         }
         
-        // 完整的代码块复制功能
+        // 代码块复制功能
         function copyCodeBlock(button) {
             try {
-                // 从按钮的 data-code 属性获取编码的代码
                 const encodedCode = button.getAttribute('data-code');
-                
-                if (!encodedCode) {
-                    throw new Error('未找到代码数据');
-                }
-                
-                // 解码代码
+                if (!encodedCode) throw new Error('未找到代码数据');
                 const code = decodeURIComponent(escape(atob(encodedCode)));
-                
-                console.log('准备复制的代码:');
-                console.log(code);
-                console.log('代码长度:', code.length);
-                
-                // 复制到剪贴板
                 navigator.clipboard.writeText(code).then(() => {
-                    // 显示成功状态
                     const originalText = button.textContent;
                     button.textContent = '✓ 已复制';
                     button.style.background = '#10b981';
                     button.style.color = 'white';
-                    
                     setTimeout(() => {
                         button.textContent = originalText;
                         button.style.background = '#374151';
                         button.style.color = 'white';
                     }, 2000);
-                    
-                    console.log('✅ 代码复制成功');
-                }).catch(clipboardErr => {
-                    console.error('剪贴板复制失败:', clipboardErr);
-                    
-                    // 降级方案：选中代码文本
+                }).catch(() => {
                     try {
                         const codeElement = button.closest('.code-block').querySelector('pre code');
                         const range = document.createRange();
@@ -1096,33 +1108,27 @@ function getHTML() {
                         const selection = window.getSelection();
                         selection.removeAllRanges();
                         selection.addRange(range);
-                        
                         button.textContent = '已选中，请 Ctrl+C';
                         button.style.background = '#f59e0b';
-                        
                         setTimeout(() => {
                             button.textContent = '复制';
                             button.style.background = '#374151';
-                            selection.removeAllRanges();
+                            window.getSelection().removeAllRanges();
                         }, 3000);
-                        
                     } catch (selectErr) {
                         console.error('选中文本失败:', selectErr);
                         button.textContent = '复制失败';
                         button.style.background = '#ef4444';
-                        
                         setTimeout(() => {
                             button.textContent = '复制';
                             button.style.background = '#374151';
                         }, 3000);
                     }
                 });
-                
             } catch (error) {
                 console.error('代码解码失败:', error);
                 button.textContent = '解码失败';
                 button.style.background = '#ef4444';
-                
                 setTimeout(() => {
                     button.textContent = '复制';
                     button.style.background = '#374151';
@@ -1130,19 +1136,43 @@ function getHTML() {
             }
         }
         
-        // 测试复制功能的辅助函数
-        function testCopyFunction() {
-            console.log('🧪 测试代码块复制功能...');
-            const testCode = 'def hello_world():\\n    print("Hello, World!")\\n    return True';
-            navigator.clipboard.writeText(testCode).then(() => {
-                console.log('✅ 剪贴板功能正常');
-            }).catch(err => {
-                console.log('❌ 剪贴板功能异常:', err);
-            });
-        }
-        
-        // 页面加载完成后测试
-        setTimeout(testCopyFunction, 1000);
+        // 页面加载完成后简单自检（可选）
+        setTimeout(() => {
+            const testCode = 'def hello_world():\n    print("Hello, World!")\n    return True';
+            navigator.clipboard.writeText(testCode).catch(() => {});
+        }, 1000);
+    // ===== 折叠侧栏（移动端） =====
+        (function () {
+          const sidebar = document.getElementById('sidebar');
+          const toggleBtn = document.getElementById('sidebarToggle');
+          const backdrop = document.getElementById('backdrop');
+          if (!sidebar || !toggleBtn || !backdrop) return;
+          function openSidebar() {
+            sidebar.setAttribute('data-open', 'true');
+            toggleBtn.setAttribute('aria-expanded', 'true');
+            backdrop.hidden = false;
+            document.body.classList.add('no-scroll');
+          }
+          function closeSidebar() {
+            sidebar.setAttribute('data-open', 'false');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+            backdrop.hidden = true;
+            document.body.classList.remove('no-scroll');
+          }
+          function toggleSidebar() {
+            const isOpen = sidebar.getAttribute('data-open') === 'true';
+            isOpen ? closeSidebar() : openSidebar();
+          }
+          toggleBtn.addEventListener('click', toggleSidebar);
+          backdrop.addEventListener('click', closeSidebar);
+          const mql = window.matchMedia('(max-width: 768px)');
+          function handleMQ(e) { if (!e.matches) closeSidebar(); }
+          if (mql.addEventListener) mql.addEventListener('change', handleMQ); else mql.addListener(handleMQ);
+          // 在关键成功操作后可调用 closeSidebar() 收起抽屉：
+          const _auth = window.authenticate; window.authenticate = async function(){ await _auth(); if (mql.matches) closeSidebar(); };
+          const _update = window.updateModelInfo; window.updateModelInfo = function(){ _update(); };
+          const _send = window.sendMessage; window.sendMessage = async function(){ await _send(); if (mql.matches) closeSidebar(); };
+        })();
     </script>
 </body>
 </html>`;
