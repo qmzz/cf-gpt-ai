@@ -1,3 +1,8 @@
+// 保留作者信息，qmzz自用去校验
+const AUTHOR_INFO = {
+  name: "康康的订阅天地",
+  platform: "YouTube"
+};
 // 模型特定参数配置
 function getModelOptimalParams(modelKey, modelId) {
   const baseParams = {
