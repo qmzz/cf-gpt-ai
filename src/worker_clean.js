@@ -1,20 +1,3 @@
-// 作者信息保护 - 不可篡改
-const AUTHOR_INFO = {
-  name: "康康的订阅天地",
-  platform: "YouTube",
-  verified: true
-};
-
-// 验证作者信息完整性
-function verifyAuthorInfo() {
-  // 直接验证关键信息，避免编码问题
-  if (AUTHOR_INFO.name !== "康康的订阅天地" || 
-      AUTHOR_INFO.platform !== "YouTube" || 
-      !AUTHOR_INFO.verified) {
-    throw new Error("作者信息已被篡改，服务拒绝运行！请保持原始作者信息：YouTube：康康的订阅天地");
-  }
-}
-
 // 模型特定参数配置
 function getModelOptimalParams(modelKey, modelId) {
   const baseParams = {
@@ -63,7 +46,7 @@ function getModelOptimalParams(modelKey, modelId) {
         presence_penalty: 0.1
       };
       
-    case 'gemma-3':
+    case 'gemma-v4':
       return {
         ...baseParams,
         max_tokens: 4096,        // 多语言模型
@@ -140,11 +123,11 @@ const MODEL_CONFIG = {
     "use_messages": true,
     "features": ["代码生成", "调试分析", "技术文档"]
   },
-  "gemma-3": {
-    "id": "@cf/google/gemma-3-12b-it",
+  "gemma-v4": {
+    "id": "@cf/aisingapore/gemma-sea-lion-v4-27b-it",
     "name": "Gemma 3 12B",
     "description": "多语言模型，支持140+种语言和文化理解",
-    "context": 80000,
+    "context": 128000,
     "max_output": 4096,
     "input_price": 0.35,
     "output_price": 0.56,
@@ -155,19 +138,6 @@ const MODEL_CONFIG = {
 
 export default {
   async fetch(request, env, ctx) {
-    // 验证作者信息完整性
-    try {
-      verifyAuthorInfo();
-    } catch (error) {
-      return new Response(JSON.stringify({ 
-        error: error.message,
-        status: "服务已停止运行"
-      }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-    
     const url = new URL(request.url);
     
     // 处理CORS
@@ -290,8 +260,8 @@ async function handleChat(request, env, corsHeaders) {
       } else if (selectedModel.use_prompt) {
         // Gemma等模型
         const promptText = recentHistory.length > 0 
-          ? `你是一个智能AI助手，请务必用中文回答所有问题。\n\n历史对话:\n${recentHistory.map(h => `${h.role}: ${h.content}`).join('\n')}\n\n当前问题: ${message}\n\n请用中文回答:`
-          : `你是一个智能AI助手，请务必用中文回答所有问题。\n\n问题: ${message}\n\n请用中文回答:`;
+          ? `You are a helpful AI assistant.\n\n Conversation:\n${recentHistory.map(h => `${h.role}: ${h.content}`).join('\n')}\n\n User: ${message}\n\n Assistant:`
+          : `You are a helpful AI assistant.\n\n User: ${message}\n\n Assistant:`;
         
         const optimalParams = getModelOptimalParams(model, selectedModel.id);
         const promptParams = {
@@ -305,9 +275,9 @@ async function handleChat(request, env, corsHeaders) {
       } else if (selectedModel.use_messages) {
         // 使用messages参数的模型
         const messages = [
-          { role: "system", content: "你是一个智能AI助手，请务必用中文回答所有问题。无论用户使用什么语言提问，你都必须用中文回复。请确保你的回答完全使用中文，包括专业术语和代码注释。" },
+          { role: "system", content: "You are a helpful AI assistant. Respond in the user's language when obvious; otherwise default to English. Be clear and concise." },
           ...recentHistory.map(h => ({ role: h.role, content: h.content })),
-          { role: "user", content: `${message}\n\n请用中文回答:` }
+          { role: "user", content: `${message}` }
         ];
 
         const optimalParams = getModelOptimalParams(model, selectedModel.id);
@@ -827,9 +797,6 @@ function getHTML() {
         <div class="header">
             <h1>🤖 CF AI Chat</h1>
             <p>支持多模型切换的智能聊天助手</p>
-            <div class="author-info" onclick="window.open('https://www.youtube.com/@%E5%BA%B7%E5%BA%B7%E7%9A%84V2Ray%E4%B8%8EClash', '_blank')">
-                <p>📺 作者：<strong>YouTube：康康的订阅天地</strong></p>
-            </div>
         </div>
         <div class="main-content">
             <div class="sidebar">
@@ -856,7 +823,7 @@ function getHTML() {
             <div class="chat-area">
                 <div class="messages" id="messages">
                     <div class="message assistant">
-                        <div class="message-content">👋 欢迎使用CF AI Chat！请先输入密码验证身份，然后选择一个AI模型开始聊天。<br><br>🇨🇳 所有AI模型都已配置为使用中文回复，无论您使用什么语言提问，AI都会用中文回答您的问题。</div>
+                        <div class="message-content">👋 欢迎使用CF AI Chat！请先输入密码验证身份，然后选择一个AI模型开始聊天。</div>
                     </div>
                 </div>
                 <div class="loading" id="loading">🤔 AI正在思考中...</div>
@@ -870,38 +837,7 @@ function getHTML() {
         </div>
     </div>
     <script>
-        // 作者信息保护
-        const AUTHOR_VERIFICATION = {
-            name: "康康的订阅天地",
-            platform: "YouTube",
-            required: true
-        };
-        
-        function verifyAuthorDisplay() {
-            try {
-                const authorElements = document.querySelectorAll('.author-info strong');
-                if (authorElements.length === 0) {
-                    console.warn('作者信息元素未找到，可能页面还未完全加载');
-                    return true; // 页面加载期间暂时允许通过
-                }
-                
-                for (let element of authorElements) {
-                    if (!element.textContent.includes('YouTube：康康的订阅天地')) {
-                        alert('作者信息已被篡改，服务将停止运行！');
-                        document.body.innerHTML = '<div style="text-align:center;margin-top:50px;"><h1>❌ 服务已停止</h1><p>作者信息被篡改，请保持原始作者信息：YouTube：康康的订阅天地</p></div>';
-                        return false;
-                    }
-                }
-                return true;
-            } catch (error) {
-                console.error('验证作者信息时发生错误:', error);
-                return true; // 发生错误时暂时允许通过，避免破坏页面功能
-            }
-        }
-        
-        // 定期检查作者信息
-        setInterval(verifyAuthorDisplay, 3000);
-        
+       
         // 全局错误处理
         window.onerror = function(message, source, lineno, colno, error) {
             console.error('JavaScript错误:', { message, source, lineno, colno, error });
@@ -920,8 +856,6 @@ function getHTML() {
         
         let isAuthenticated = false, currentPassword = '', models = {}, chatHistory = [], currentModel = '';
         window.onload = async function() {
-            // 首次验证作者信息
-            if (!verifyAuthorDisplay()) return;
             try {
                 const response = await fetch('/api/models');
                 models = await response.json();
@@ -948,7 +882,7 @@ function getHTML() {
                 if (currentModel && currentModel !== selectedModel) {
                     chatHistory = [];
                     const messagesDiv = document.getElementById('messages');
-                    messagesDiv.innerHTML = '<div class="message assistant"><div class="message-content">🔄 已切换模型，正在加载历史记录...<br><br>🇨🇳 新模型已配置为中文回复模式。</div></div>';
+                    messagesDiv.innerHTML = '<div class="message assistant"><div class="message-content">🔄 已切换模型，正在加载历史记录...</div></div>';
                 }
                 
                 currentModel = selectedModel;
@@ -1014,7 +948,6 @@ function getHTML() {
         }
         async function sendMessage() {
             try {
-                if (!verifyAuthorDisplay()) return;
                 if (!isAuthenticated || !currentModel) { showError('请先验证身份并选择模型'); return; }
                 const input = document.getElementById('messageInput');
                 const message = input.value.trim();
