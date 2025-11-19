@@ -240,7 +240,7 @@ async function handleChat(request, env, corsHeaders) {
           userInput = "What is the origin of the phrase Hello, World?";
         } else {
           // 给GPT更明确的中文回复指示
-          userInput = `请用中文回答以下问题：${message}`;
+          userInput = message;
         }
         
         console.log(`${selectedModel.name} 输入:`, userInput);
