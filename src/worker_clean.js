@@ -125,7 +125,7 @@ const MODEL_CONFIG = {
   },
   "gemma-v4": {
     "id": "@cf/aisingapore/gemma-sea-lion-v4-27b-it",
-    "name": "Gemma 3 12B",
+    "name": "Gemma v4 27B",
     "description": "多语言模型，支持140+种语言和文化理解",
     "context": 128000,
     "max_output": 4096,
